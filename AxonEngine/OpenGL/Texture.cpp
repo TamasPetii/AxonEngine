@@ -1,4 +1,6 @@
 #include "Texture.h"
+#include <cmath>
+#include <algorithm>
 
 namespace Axn 
 {
@@ -6,13 +8,15 @@ namespace Axn
     {
         glCreateTextures(_spec.target, 1, &_id);
 
+        GLsizei mip_levels = _spec.generate_mipmaps ?  (1 + static_cast<GLsizei>(std::floor(std::log2(std::max(_spec.width, _spec.height))))) : 1;
+
         if (_spec.target == GL_TEXTURE_CUBE_MAP || _spec.target == GL_TEXTURE_2D_ARRAY) 
         {
-            glTextureStorage3D(_id, 1, _spec.internal_format, _spec.width, _spec.height, _spec.layers);
+            glTextureStorage3D(_id, mip_levels, _spec.internal_format, _spec.width, _spec.height, _spec.layers);
         }
         else 
         {
-            glTextureStorage2D(_id, 1, _spec.internal_format, _spec.width, _spec.height);
+            glTextureStorage2D(_id, mip_levels, _spec.internal_format, _spec.width, _spec.height);
         }
 
         glTextureParameteri(_id, GL_TEXTURE_MIN_FILTER, _spec.min_filter);

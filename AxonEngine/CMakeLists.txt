@@ -8,11 +8,13 @@ file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
 
 add_executable(AxonEngine ${ENGINE_SOURCES})
 
-add_custom_command(TARGET AxonEngine POST_BUILD
+add_custom_target(CopyShaders ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/Shaders
     $<TARGET_FILE_DIR:AxonEngine>/Shaders
 )
+
+add_dependencies(AxonEngine CopyShaders)
 
 target_link_libraries(AxonEngine PRIVATE
     glm::glm

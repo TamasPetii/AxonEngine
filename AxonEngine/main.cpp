@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <memory>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -9,55 +10,16 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#include <entt/entt.hpp>
-#include <assimp/Importer.hpp>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 #include "OpenGL/Buffer.h"
 #include "OpenGL/Shader.h"
 #include "OpenGL/Program.h"
-#include "OpenGL/Vertex.h"
+#include "Mesh/StaticMesh.h"
+
 #include "Manager/ShaderManager.h"
-
-Axn::GpuVertexData GenerateCube() 
-{
-    Axn::GpuVertexData cube;
-    
-    const glm::vec3 pos[8] = {
-        {-0.5f, -0.5f,  0.5f}, { 0.5f, -0.5f,  0.5f}, { 0.5f,  0.5f,  0.5f}, {-0.5f,  0.5f,  0.5f},
-        {-0.5f, -0.5f, -0.5f}, { 0.5f, -0.5f, -0.5f}, { 0.5f,  0.5f, -0.5f}, {-0.5f,  0.5f, -0.5f} 
-    };
-
-    const glm::vec3 normals[6] = {
-        { 0,  0,  1}, { 1,  0,  0}, { 0,  0, -1}, {-1,  0,  0}, { 0,  1,  0}, { 0, -1,  0}
-    };
-
-    int faces[6][5] = {
-        {0, 1, 2, 3, 0},
-        {1, 5, 6, 2, 1},
-        {5, 4, 7, 6, 2},
-        {4, 0, 3, 7, 3},
-        {3, 2, 6, 7, 4},
-        {4, 5, 1, 0, 5}
-    };
-
-    uint32_t vertexCount = 0;
-    for (int i = 0; i < 6; i++) 
-    {
-        for (int j = 0; j < 4; j++) 
-        {
-            cube.positions.push_back({ pos[faces[i][j]], 0 });
-            cube.attributes.push_back({ normals[faces[i][4]], 0.0f, glm::vec3(0), 0.0f });
-        }
-
-        cube.indices.insert(cube.indices.end(), { vertexCount, vertexCount + 1, vertexCount + 2, vertexCount, vertexCount + 2, vertexCount + 3 });
-        vertexCount += 4;
-    }
-
-    return cube;
-}
+#include "Manager/ModelManager.h"
+#include "Manager/TextureManager.h"
+#include "Manager/MaterialManager.h"
 
 int main() 
 {
@@ -99,24 +61,39 @@ int main()
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init("#version 460 core");
 
-        Axn::GpuVertexData myCube = GenerateCube();
-        Axn::Buffer posBuffer; posBuffer.Allocate<Axn::GpuVertexPosition>(myCube.positions);
-        Axn::Buffer attrBuffer; attrBuffer.Allocate<Axn::GpuVertexAttributes>(myCube.attributes);
-        Axn::Buffer indexBuffer; indexBuffer.Allocate<uint32_t>(myCube.indices);
+        auto texManager = std::make_unique<Axn::TextureManager>();
         
+        Axn::TextureManager* texPtr = texManager.get();
+        auto materialManager = std::make_unique<Axn::MaterialManager>(
+            [texPtr](const std::string& path) -> GLuint64 {
+                auto tex = texPtr->LoadTexture(path);
+                return tex ? tex->GetHandle() : 0;
+            }
+        );
+
+        Axn::MaterialManager* matPtr = materialManager.get();
+        auto modelManager = std::make_unique<Axn::ModelManager>(
+            [matPtr](const Axn::MaterialInfo& info) -> uint32_t {
+                return matPtr->RegisterMaterial(info);
+            }
+        );
+
+        auto shaderManager = std::make_unique<Axn::ShaderManager>();
+        shaderManager->LoadShader("ShaderVert", GL_VERTEX_SHADER, "Shaders/shader.vert");
+        shaderManager->LoadShader("ShaderFrag", GL_FRAGMENT_SHADER, "Shaders/shader.frag");
+        Axn::Program* shaderProgram = shaderManager->CreateProgram("MainShader", {"ShaderVert", "ShaderFrag"});
+
+        auto myModel = modelManager->LoadModel("C:/Users/User/Desktop/Models/Sponza-master/sponza.obj");
+
         GLuint dummyVAO = 0;
         glCreateVertexArrays(1, &dummyVAO);
         glBindVertexArray(dummyVAO);
 
-        Axn::ShaderManager shaderManager;
-        shaderManager.LoadShader("ShaderVert", GL_VERTEX_SHADER, "Shaders/shader.vert");
-        shaderManager.LoadShader("ShaderFrag", GL_FRAGMENT_SHADER, "Shaders/shader.frag");
-        Axn::Program* shaderProgram = shaderManager.CreateProgram("CubeMat", {"ShaderVert", "ShaderFrag"});
-
         glEnable(GL_DEPTH_TEST);
 
-        float rotationAngle = 0.0f;
-        glm::vec3 cubeColor(0.2f, 0.6f, 1.0f);
+        glm::vec3 camPos(0.0f, 2.0f, 0.0f);
+        glm::vec3 camTarget(10.0f, 2.0f, 0.0f); 
+        float modelScale = 0.01f;
         
         while (!glfwWindowShouldClose(window)) 
         {
@@ -125,14 +102,13 @@ int main()
             glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            rotationAngle += 0.01f;
+            materialManager->SyncToGpu(2);
+
             glm::mat4 model = glm::mat4(1.0f); 
-            model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-            model = glm::rotate(model, rotationAngle, glm::vec3(0.5f, 1.0f, 0.0f));
-            model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+            model = glm::scale(model, glm::vec3(modelScale));
             glm::mat4 modelIT = glm::transpose(glm::inverse(model));
             
-            glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 1.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::mat4 view = glm::lookAt(camPos, camTarget, glm::vec3(0.0f, 1.0f, 0.0f));
             
             int w, h;
             glfwGetFramebufferSize(window, &w, &h);
@@ -144,20 +120,19 @@ int main()
             shaderProgram->SetUniform("modelIT", modelIT);
             shaderProgram->SetUniform("view", view);
             shaderProgram->SetUniform("proj", proj);
-            shaderProgram->SetUniform("u_Color", cubeColor);
-
-            posBuffer.BindAsSsbo(0); 
-            attrBuffer.BindAsSsbo(1);
-            indexBuffer.BindAsIndexBuffer();
-            glDrawElements(GL_TRIANGLES, myCube.indices.size(), GL_UNSIGNED_INT, nullptr);
+            
+            myModel->Draw(shaderProgram);
 
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
             ImGui::Begin("AxonEngine Muszerfal");
-            ImGui::Text("Modern C++20 | DSA | Vertex Pulling");
-            ImGui::ColorEdit3("Kocka Szine", &cubeColor.x);
+            ImGui::Text("Sponza Explorer");
+            ImGui::Separator();
+            ImGui::DragFloat3("Kamera Pozicio", &camPos.x, 0.1f);
+            ImGui::DragFloat3("Kamera Celpont", &camTarget.x, 0.1f);
+            ImGui::DragFloat("Modell Meret", &modelScale, 0.001f, 0.0001f, 1.0f);
             ImGui::End();
 
             ImGui::Render();
@@ -174,6 +149,7 @@ int main()
         }
 
         glDeleteVertexArrays(1, &dummyVAO);
+        
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
@@ -186,12 +162,9 @@ int main()
     }
     catch (const std::exception& e) 
     {
-        // Ha bármilyen hiba történik (pl. nem találja a shadert), ide ugrik!
         std::cerr << "\n----------------------------------------" << std::endl;
         std::cerr << "[VEGZETES HIBA]: " << e.what() << std::endl;
         std::cerr << "----------------------------------------\n" << std::endl;
-        
-        // Ez megállítja a konzolt, hogy el tudd olvasni a hibát, mielőtt bezáródik az ablak
         system("pause"); 
         return -1;
     }

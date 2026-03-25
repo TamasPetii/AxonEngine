@@ -27,6 +27,7 @@ uniform mat4 modelIT;
 
 layout(location = 0) out vec3 outPos;
 layout(location = 1) out vec3 outNormal;
+layout(location = 2) out vec2 outUv;
 
 void main() 
 {
@@ -37,6 +38,7 @@ void main()
     
     outPos = worldPos.xyz;
     outNormal = normalize((modelIT * vec4(vertAttr.normal, 0)).xyz); 
+    outUv = vec2(vertAttr.uv_x, vertAttr.uv_y);
 
     gl_Position = proj * view * worldPos;
 }
