@@ -1,0 +1,20 @@
+{
+  "name": "axon-engine",
+  "version": "1.0.0",
+  "dependencies": [
+    "glm",
+    "glew",
+    "glfw3",
+    "assimp",
+    "stb",
+    "entt",
+    {
+      "name": "imgui",
+      "features": [
+        "docking-experimental",
+        "glfw-binding",
+        "opengl3-binding"
+      ]
+    }
+  ]
+}

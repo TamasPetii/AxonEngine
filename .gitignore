@@ -1,0 +1,14 @@
+/build/
+/out/
+/bin/
+
+.vs/
+.vscode/
+.idea/
+*.user
+
+/External/vcpkg/buildtrees/
+/External/vcpkg/downloads/
+/External/vcpkg/installed/
+/External/vcpkg/packages/
+vcpkg_installed/
