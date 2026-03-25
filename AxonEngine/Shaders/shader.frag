@@ -32,13 +32,9 @@ void main()
         sampler2D albedoMap = sampler2D(mat.albedoHandle);
         finalColor *= texture(albedoMap, inUv); 
     }
-    else 
-    {
-        finalColor = vec4(1.0, 0.0, 1.0, 1.0);
-    }
     
     vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
     float diff = max(dot(normalize(inNormal), lightDir), 0.2); 
     
-    FragColor = vec4(finalColor.rgb, finalColor.a);
+    FragColor = vec4(finalColor.rgb * diff, finalColor.a);
 }

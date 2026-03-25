@@ -1,3 +1,6 @@
 [submodule "External/vcpkg"]
 	path = External/vcpkg
 	url = https://github.com/microsoft/vcpkg.git
+[submodule "External/Sponza"]
+	path = External/Sponza
+	url = https://github.com/jimmiebergmann/Sponza

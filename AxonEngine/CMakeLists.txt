@@ -8,14 +8,6 @@ file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
 
 add_executable(AxonEngine ${ENGINE_SOURCES})
 
-add_custom_target(CopyShaders ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_CURRENT_SOURCE_DIR}/Shaders
-    $<TARGET_FILE_DIR:AxonEngine>/Shaders
-)
-
-add_dependencies(AxonEngine CopyShaders)
-
 target_link_libraries(AxonEngine PRIVATE
     glm::glm
     GLEW::GLEW
@@ -26,3 +18,7 @@ target_link_libraries(AxonEngine PRIVATE
 )
 
 target_include_directories(AxonEngine PRIVATE ${Stb_INCLUDE_DIR})
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE 
+    AXN_PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../"
+)
