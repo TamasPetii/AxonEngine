@@ -1,6 +1,6 @@
 #pragma once
 #include <memory>
-#include "Mesh/StaticMesh.h"
+#include "../Mesh/StaticMesh.h"
 
 namespace Axn 
 {
