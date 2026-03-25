@@ -11,7 +11,8 @@ target_link_libraries(AxonEngine PRIVATE
     GLEW::GLEW
     glfw
     assimp::assimp
-    stb::stb
-    EnTT::entt
+    EnTT::EnTT
     imgui::imgui
 )
+
+target_include_directories(AxonEngine PRIVATE ${Stb_INCLUDE_DIR})

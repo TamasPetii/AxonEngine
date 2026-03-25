@@ -15,17 +15,16 @@
 int main() {
     std::cout << "AxonEngine inditasa..." << std::endl;
 
-
     if (!glfwInit()) {
         std::cerr << "Hiba: GLFW inicializalas sikertelen!" << std::endl;
         return -1;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "AxonEngine - Vcpkg Teszt", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "AxonEngine", nullptr, nullptr);
     if (!window) {
         std::cerr << "Hiba: Ablak letrehozasa sikertelen!" << std::endl;
         glfwTerminate();
@@ -43,10 +42,18 @@ int main() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     ImGui::StyleColorsDark();
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    }
+
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330 core");
+    ImGui_ImplOpenGL3_Init("#version 460 core");
 
     glm::vec3 testVec(1.0f, 2.0f, 3.0f);
     std::cout << "GLM teszt sikeres: Y pozicio: " << testVec.y << std::endl;
@@ -76,10 +83,18 @@ int main() {
 
         ImGui::Begin("AxonEngine Debug");
         ImGui::Text("Minden vcpkg csomag tokeletesen mukodik!");
+        ImGui::Text("Probald meg kihuzni ezt az ablakot a foablakbol!");
         ImGui::End();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }
 
         glfwSwapBuffers(window);
     }

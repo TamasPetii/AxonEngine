@@ -11,15 +11,20 @@
       "displayName": "Windows Static Build",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/External/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl"
       }
     },
     {
       "name": "linux-static",
       "displayName": "Linux Static Build",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/External/vcpkg/scripts/buildsystems/vcpkg.cmake",
