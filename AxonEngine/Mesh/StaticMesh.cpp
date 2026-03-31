@@ -30,4 +30,12 @@ namespace Axn
             glDrawElements(GL_TRIANGLES, subMesh.indexCount, GL_UNSIGNED_INT, reinterpret_cast<void*>(subMesh.indexOffset * sizeof(uint32_t)));
         }
     }
+
+    void StaticMesh::SetMaterial(uint32_t meshIndex, uint32_t materialIndex)
+    {
+        if(meshIndex >= _subMeshes.size())
+            return;
+
+        _subMeshes[meshIndex].materialIndex = materialIndex;
+    }
 }

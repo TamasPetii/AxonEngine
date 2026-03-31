@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 #include "Scene.h"
+#include "Manager/InputManager.h"
 
 namespace Axn
 {
@@ -19,6 +20,7 @@ namespace Axn
 
         GLFWwindow* _window = nullptr;
         std::unique_ptr<Scene> _activeScene;
+        std::shared_ptr<InputManager> _inputManager;
     };
 }
 

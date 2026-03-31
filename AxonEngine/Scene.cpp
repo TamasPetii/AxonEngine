@@ -4,31 +4,37 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "Component/TransformComponent.h"
 #include "Component/ModelComponent.h"
+#include "Component/MaterialComponent.h"
+#include "Manager/MaterialManager.h"
 #include <iostream>
+#include <random>
 #include "Utils.h"
 
 namespace Axn
 {
-    Scene::Scene() {
+    Scene::Scene(std::shared_ptr<InputManager> input) : 
+        _inputManager(input)
+    {
         InitManagers();
         InitShaders();
         InitRegistry();
         InitFramebuffer();
+        _camera = std::make_unique<Camera>(input);
     }
 
     void Scene::InitManagers() {
         glCreateVertexArrays(1, &_rootVAO);
         glBindVertexArray(_rootVAO);
 
-        _texManager = std::make_unique<TextureManager>();
+        _textureManager = std::make_unique<TextureManager>();
         
-        _matManager = std::make_unique<MaterialManager>([this](const std::string& path) {
-            auto tex = _texManager->LoadTexture(path);
+        _materialManager = std::make_unique<MaterialManager>([this](const std::string& path) {
+            auto tex = _textureManager->LoadTexture(path);
             return tex ? tex->GetHandle() : 0;
         });
 
         _modelManager = std::make_unique<ModelManager>([this](const auto& info) {
-            return _matManager->RegisterMaterial(info);
+            return _materialManager->RegisterMaterial(info);
         });
 
         _shaderManager = std::make_unique<ShaderManager>();
@@ -62,45 +68,107 @@ namespace Axn
     }
 
     void Scene::InitRegistry() {
-        auto myModel = _modelManager->LoadModel(Utils::GetAssetPath("External/Sponza/sponza.obj"));
+        {
+            auto sponzaModel = _modelManager->LoadModel(Utils::GetAssetPath("External/Sponza/sponza.obj"));
         
-        auto sponza = _registry.create();
-        _registry.emplace<TransformComponent>(sponza, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.01f));
-        _registry.emplace<ModelComponent>(sponza, myModel, true, true);
+            auto sponza = _registry.create();
+            _registry.emplace<TransformComponent>(sponza, TransformComponent{
+                .position = glm::vec3(0.f, 0.f, 0.f),
+                .rotation = glm::vec3(0.f, 0.f, 0.f),
+                .scale = glm::vec3(0.1f)
+            });
+
+            _registry.emplace<ModelComponent>(sponza, ModelComponent{
+                .mesh = sponzaModel,
+                .isVisible = true,
+                .castShadow = true
+            });
+
+            _registry.emplace<MaterialComponent>(sponza, MaterialComponent{
+                .materialIndex = UINT32_MAX
+            });
+        }
+
+        {
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            
+            std::uniform_real_distribution<float> posDist(-50.0f, 50.0f);
+            std::uniform_real_distribution<float> rotDist(0.0f, 360.0f);
+            std::uniform_real_distribution<float> scaleDist(1.0f, 3.5f);
+            std::uniform_real_distribution<float> colorDist(0.0f, 1.0f);
+
+            std::vector<uint32_t> randomMaterials;
+            for (int i = 0; i < 10; ++i) {
+                Axn::MaterialInfo info;
+                info.name = "RandomMat_" + std::to_string(i);
+                info.baseColor = glm::vec4(colorDist(gen), colorDist(gen), colorDist(gen), 1.0f);
+                randomMaterials.push_back(_materialManager->RegisterMaterial(info));
+            }
+
+            std::uniform_int_distribution<int> matDist(0, randomMaterials.size() - 1);
+
+            auto cubeModel   = _modelManager->LoadModel(ModelManager::Cube);
+            auto sphereModel = _modelManager->LoadModel(ModelManager::Sphere);
+            auto torusModel  = _modelManager->LoadModel(ModelManager::Torus);
+
+            auto spawnRandomEntity = [&](auto modelHandle) {
+                auto entity = _registry.create();
+                
+                _registry.emplace<TransformComponent>(entity, TransformComponent{
+                    .position = glm::vec3(posDist(gen), glm::abs(posDist(gen)), posDist(gen)),
+                    .rotation = glm::vec3(rotDist(gen), rotDist(gen), rotDist(gen)),
+                    .scale = glm::vec3(scaleDist(gen))
+                });
+
+                _registry.emplace<ModelComponent>(entity, ModelComponent{
+                    .mesh = modelHandle,
+                    .isVisible = true,
+                    .castShadow = true
+                });
+
+                _registry.emplace<MaterialComponent>(entity, MaterialComponent{
+                    .materialIndex = randomMaterials[matDist(gen)]
+                });
+            };
+
+            for(int i = 0; i < 50; ++i)
+            {
+                spawnRandomEntity(cubeModel);
+                spawnRandomEntity(sphereModel);
+                spawnRandomEntity(torusModel);
+            }
+        }
     }
 
     void Scene::OnUpdate(float deltaTime) {
-
+        _camera->OnUpdate(deltaTime, _isViewportHovered);
     }
 
     void Scene::OnRender() {
         glEnable(GL_DEPTH_TEST);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-        _matManager->SyncToGpu(2);
+        _materialManager->SyncToGpu(2);
 
         _viewportFramebuffer->Bind();
         _viewportFramebuffer->Clear();
 
-        float aspect = _viewportSize.x / (_viewportSize.y > 0 ? _viewportSize.y : 1.0f);
-        glm::mat4 view = glm::lookAt(_camPos, _camTarget, glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
-
         _mainShader->Bind();
-        _mainShader->SetUniform("view", view);
-        _mainShader->SetUniform("proj", proj);
+        _mainShader->SetUniform("view", _camera->GetViewMatrix());
+        _mainShader->SetUniform("proj", _camera->GetProjectionMatrix());
 
-        for (auto [entity, transform, modelComp] : _registry.view<TransformComponent, ModelComponent>().each()) {
+        for (auto [entity, transform, modelComp, materialComp] : _registry.view<TransformComponent, ModelComponent, MaterialComponent>().each()) {
             if (!modelComp.isVisible) 
                 continue;
             
             _mainShader->SetUniform("model", transform.GetTransform()); 
-            _mainShader->SetUniform("modelIT", transform.GetTransformIT());
+            _mainShader->SetUniform("modelIT", transform.GetTransformIT()); 
 
-            if (modelComp.mesh) 
-            {
-                modelComp.mesh->Draw(_mainShader);
-            }
+            if(materialComp.materialIndex != UINT32_MAX)
+                modelComp.mesh->SetMaterial(0, materialComp.materialIndex);
+
+            modelComp.mesh->Draw(_mainShader);
         }
 
         _viewportFramebuffer->UnBind();
@@ -109,10 +177,13 @@ namespace Axn
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
         ImGui::Begin("Viewport");
 
+        _isViewportHovered = ImGui::IsWindowHovered();
+
         ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
         if (_viewportSize.x != viewportPanelSize.x || _viewportSize.y != viewportPanelSize.y) {
             _viewportSize = { viewportPanelSize.x, viewportPanelSize.y };
             _viewportFramebuffer->Resize((uint32_t)_viewportSize.x, (uint32_t)_viewportSize.y);
+            _camera->OnResize((uint32_t)_viewportSize.x, (uint32_t)_viewportSize.y);
         }
 
         uint32_t textureID = _viewportFramebuffer->GetTexture("Color")->GetID();
@@ -122,10 +193,6 @@ namespace Axn
         ImGui::PopStyleVar();
 
         ImGui::Begin("AxonEngine Settings");
-        ImGui::Text("Sponza Explorer");
-        ImGui::Separator();
-        ImGui::DragFloat3("Camera Position", &_camPos.x, 0.1f);
-        ImGui::DragFloat3("Camera Target", &_camTarget.x, 0.1f);
         ImGui::End();
     }
 

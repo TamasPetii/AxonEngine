@@ -1,6 +1,5 @@
 #version 460 core
 #extension GL_ARB_bindless_texture : require
-#extension GL_ARB_gpu_shader_int64 : require
 
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inNormal;
@@ -11,8 +10,8 @@ layout(location = 0) out vec4 FragColor;
 struct Material 
 {
     vec4 baseColor;
-    uint64_t albedoHandle;
-    uint64_t normalHandle;
+    uvec2 albedoHandle;
+    uvec2 normalHandle;
 };
 
 layout(std430, binding = 2) readonly buffer MaterialBuffer 
@@ -27,7 +26,7 @@ void main()
     Material mat = materials[u_MaterialIndex];  
     vec4 finalColor = mat.baseColor;
 
-    if (mat.albedoHandle != 0) 
+    if (mat.albedoHandle != uvec2(0)) 
     {
         sampler2D albedoMap = sampler2D(mat.albedoHandle);
         finalColor *= texture(albedoMap, inUv); 

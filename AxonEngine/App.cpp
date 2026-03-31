@@ -10,7 +10,7 @@ namespace Axn
     App::App() {
         if (InitWindow()) {
             InitImGui();
-            _activeScene = std::make_unique<Scene>();
+            _activeScene = std::make_unique<Scene>(_inputManager);
         }
     }
 
@@ -25,7 +25,30 @@ namespace Axn
 
         glfwMakeContextCurrent(_window);
         glewExperimental = GL_TRUE;
-        return glewInit() == GLEW_OK;
+        if (glewInit() != GLEW_OK) return false;
+
+        _inputManager = std::make_shared<InputManager>();
+
+        glfwSetWindowUserPointer(_window, this);
+
+        glfwSetKeyCallback(_window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+            auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
+            if (action == GLFW_PRESS) app->_inputManager->SetKeyboardKey(key, true);
+            else if (action == GLFW_RELEASE) app->_inputManager->SetKeyboardKey(key, false);
+        });
+
+        glfwSetMouseButtonCallback(_window, [](GLFWwindow* window, int button, int action, int mods) {
+            auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
+            if (action == GLFW_PRESS) app->_inputManager->SetMouseButton(button, true);
+            else if (action == GLFW_RELEASE) app->_inputManager->SetMouseButton(button, false);
+        });
+
+        glfwSetCursorPosCallback(_window, [](GLFWwindow* window, double xpos, double ypos) {
+            auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
+            app->_inputManager->SetMousePosition(xpos, ypos);
+        });
+    
+        return true;
     }
 
     void App::InitImGui() {
@@ -148,6 +171,8 @@ namespace Axn
             }
 
             glfwSwapBuffers(_window);
+
+            _inputManager->UpdatePrevious();
         }
     }
 

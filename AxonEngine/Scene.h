@@ -11,11 +11,13 @@
 #include "Manager/ModelManager.h"
 #include "Manager/TextureManager.h"
 #include "Manager/MaterialManager.h"
+#include "Manager/InputManager.h"
+#include "Utils/Camera.h"
 
 namespace Axn {
     class Scene {
     public:
-        Scene();
+        Scene(std::shared_ptr<InputManager> input);
         virtual ~Scene();
 
         void OnUpdate(float dt);
@@ -27,20 +29,19 @@ namespace Axn {
         void InitFramebuffer();
     private:
         GLuint _rootVAO = 0;
-        std::unique_ptr<TextureManager> _texManager;
-        std::unique_ptr<MaterialManager> _matManager;
+        std::unique_ptr<TextureManager> _textureManager;
+        std::unique_ptr<MaterialManager> _materialManager;
         std::unique_ptr<ModelManager> _modelManager;
         std::unique_ptr<ShaderManager> _shaderManager;
+        std::shared_ptr<InputManager> _inputManager;
     private:
         glm::vec2 _viewportSize{ 0, 0 };
-        std::unique_ptr<Framebuffer> _viewportFramebuffer;
-    
-        entt::registry _registry;
+        bool _isViewportHovered = false;
+        std::unique_ptr<Camera> _camera;
         
+        entt::registry _registry;
+        std::unique_ptr<Framebuffer> _viewportFramebuffer;      
         Program* _mainShader = nullptr;
-
-        glm::vec3 _camPos{ 0.0f, 2.0f, 0.0f };
-        glm::vec3 _camTarget{ 10.0f, 2.0f, 0.0f };
     };
 }
 
